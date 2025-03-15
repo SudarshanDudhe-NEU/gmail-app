@@ -99,7 +99,8 @@ class GmailMonitor:
         logging.info(f"Searching for emails with query: {query}")
         
         try:
-            messages = search_messages(self.service, query)
+            response = search_messages(self.service, query)
+            messages = response.get('messages', [])
             
             if not messages:
                 logging.info("No new emails found")
