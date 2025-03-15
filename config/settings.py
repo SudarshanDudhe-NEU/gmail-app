@@ -16,29 +16,67 @@ GMAIL_USER_EMAIL = os.getenv('GMAIL_USER_EMAIL', '')
 # Email importance criteria
 IMPORTANT_EMAIL_CRITERIA = {
     'important_senders': [
-        r'boss@company\.com',
-        r'urgentnotifications@',
-        r'alerts@',
-        # Add more patterns as needed
+        r'noreply@linkedin\.com',
+        r'jobs@indeed\.com',
+        r'careers@company\.com',  # Add more known job application senders
+        r'recruiter@company\.com'
     ],
     'important_subjects': [
-        r'urgent',
-        r'important',
-        r'alert',
-        r'action required',
-        r'deadline',
-        # Add more patterns as needed
+        r'job application',
+        r'interview',
+        r'resume',
+        r'CV',
+        r'cover letter',
+        r'position',
+        r'opportunity',
+        r'career',
+        r'hiring',
+        r'recruiter',
+        r'HR',
+        r'offer',
+        r'application status'
     ],
     'important_keywords': [
-        r'critical',
-        r'immediate attention',
-        r'asap',
-        # Add more patterns as needed
-    ],
-    'direct_message': True,
-    'check_priority': True,
-    'user_email': GMAIL_USER_EMAIL
+        r'job application',
+        r'interview',
+        r'resume',
+        r'CV',
+        r'cover letter',
+        r'position',
+        r'opportunity',
+        r'career',
+        r'hiring',
+        r'recruiter',
+        r'HR',
+        r'offer',
+        r'application status'
+    ]
 }
+
+# Additional important email keywords
+IMPORTANT_EMAIL_KEYWORDS = [
+    'job application',
+    'interview',
+    'resume',
+    'CV',
+    'cover letter',
+    'position',
+    'opportunity',
+    'career',
+    'hiring',
+    'recruiter',
+    'HR',
+    'offer',
+    'application status'
+]
+
+# Additional important email senders
+IMPORTANT_EMAIL_SENDERS = [
+    'noreply@linkedin.com',
+    'jobs@indeed.com',
+    'careers@company.com',  # Add more known job application senders
+    'recruiter@company.com'
+]
 
 # Notification settings
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
