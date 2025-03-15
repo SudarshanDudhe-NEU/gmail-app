@@ -3,6 +3,8 @@ import requests
 from datetime import datetime
 from pathlib import Path
 import logging
+from transformers import pipeline
+from utils.email_parser import extract_job_details
 
 # Configure logging
 logging.basicConfig(
@@ -11,93 +13,74 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Initialize the text generation pipeline
+generator = pipeline("text-generation", model="gpt2")
+
 class NotificationService:
     """Service for sending notifications to different platforms"""
     
     def __init__(self, config):
-        self.telegram_token = config.get('TELEGRAM_BOT_TOKEN')
+        self.config = config
+        self.telegram_bot_token = config.get('TELEGRAM_BOT_TOKEN')
         self.telegram_chat_id = config.get('TELEGRAM_CHAT_ID')
         self.whatsapp_enabled = config.get('WHATSAPP_ENABLED', False)
         self.whatsapp_phone = config.get('WHATSAPP_PHONE')
+
+    def format_message(self, subject, body, sender, received_time):
+        """Format the message using LLM"""
+        job_details = extract_job_details(body)
+        prompt = f"""
+        Format the following email for a Telegram notification:
+        Subject: {subject}
+        Sender: {sender}
+        Received Time: {received_time}
+        Body: {body}
+        Job Title: {job_details['job_title']}
+        Company: {job_details['company']}
+        Location: {job_details['location']}
+        Deadline: {job_details['deadline']}
+        """
+
+        response = generator(prompt, max_length=150, num_return_sequences=1)
+        formatted_message = response[0]['generated_text'].strip()
+        return formatted_message
         
-    def send_telegram_notification(self, subject, sender, snippet, timestamp=None):
-        """Send a notification to Telegram"""
-        if not self.telegram_token or not self.telegram_chat_id:
-            logger.warning("Telegram notification skipped: missing configuration")
-            return False
-            
-        try:
-            # Format the message
-            if timestamp:
-                try:
-                    dt_obj = datetime.fromtimestamp(int(timestamp) / 1000.0)
-                    date_str = dt_obj.strftime('%Y-%m-%d %H:%M:%S')
-                except:
-                    date_str = "Unknown time"
-            else:
-                date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                
-            message = f"📬 *New Important Email*\n\n"
-            message += f"*From:* {sender}\n"
-            message += f"*Subject:* {subject}\n"
-            message += f"*Time:* {date_str}\n\n"
-            message += f"*Preview:*\n{snippet[:150]}..."
-            
-            # Send the telegram message
-            url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
-            payload = {
-                'chat_id': self.telegram_chat_id,
-                'text': message,
-                'parse_mode': 'Markdown'
-            }
-            
-            response = requests.post(url, json=payload)
-            response.raise_for_status()
-            
-            logger.info(f"Telegram notification sent successfully")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to send Telegram notification: {str(e)}")
-            return False
-    
-    def send_whatsapp_notification(self, subject, sender, snippet):
-        """Send a notification via WhatsApp"""
-        if not self.whatsapp_enabled or not self.whatsapp_phone:
-            logger.warning("WhatsApp notification skipped: not enabled or missing phone number")
-            return False
+    def send_notification(self, subject, body, sender, received_time):
+        """Send notification through all configured channels"""
+        success = False
+        formatted_message = self.format_message(subject, body, sender, received_time)
         
-        try:
-            # Note: This is a placeholder. Actual implementation would depend on the WhatsApp API service you're using
-            # You might use pywhatkit, Twilio, or the WhatsApp Business API
-            logger.info(f"Would send WhatsApp notification to {self.whatsapp_phone} (implementation needed)")
-            
-            # Example using pywhatkit (requires GUI and browser):
-            # import pywhatkit
-            # message = f"📬 New Important Email\nFrom: {sender}\nSubject: {subject}\n\n{snippet[:100]}..."
-            # pywhatkit.sendwhatmsg_instantly(self.whatsapp_phone, message, wait_time=15)
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to send WhatsApp notification: {str(e)}")
-            return False
-            
-    def notify_important_email(self, email_data):
-        """Send notifications about an important email to configured channels"""
-        subject = email_data.get('subject', 'No subject')
-        sender = email_data.get('from', 'Unknown sender')
-        snippet = email_data.get('snippet', 'No preview available')
-        timestamp = email_data.get('timestamp')
+        # Try Telegram if configured
+        if self.telegram_bot_token and self.telegram_chat_id:
+            try:
+                self.send_telegram_notification(formatted_message)
+                success = True
+            except Exception as e:
+                logging.error(f"Failed to send Telegram notification: {str(e)}")
+        else:
+            logging.warning("Telegram notifications not configured. Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to .env file.")
         
-        # Send to all configured notification channels
-        telegram_result = self.send_telegram_notification(subject, sender, snippet, timestamp)
-        whatsapp_result = False
+        # Try WhatsApp if enabled and configured
+        if self.whatsapp_enabled and self.whatsapp_phone:
+            try:
+                self.send_whatsapp_notification(formatted_message)
+                success = True
+            except Exception as e:
+                logging.error(f"Failed to send WhatsApp notification: {str(e)}")
         
-        if self.whatsapp_enabled:
-            whatsapp_result = self.send_whatsapp_notification(subject, sender, snippet)
-            
-        return {
-            'telegram': telegram_result,
-            'whatsapp': whatsapp_result
+        return success
+
+    def send_telegram_notification(self, message):
+        """Send a notification via Telegram"""
+        url = f"https://api.telegram.org/bot{self.telegram_bot_token}/sendMessage"
+        data = {
+            'chat_id': self.telegram_chat_id,
+            'text': message
         }
+        response = requests.post(url, data=data)
+        response.raise_for_status()
+
+    def send_whatsapp_notification(self, message):
+        """Send a notification via WhatsApp (placeholder)"""
+        # Implement WhatsApp notification logic here
+        pass

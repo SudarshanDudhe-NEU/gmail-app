@@ -7,3 +7,5 @@ requests>=2.31.0
 pywhatkit>=5.4
 # For Telegram notifications
 python-telegram-bot>=20.6
+transformers
+torch

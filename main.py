@@ -24,7 +24,12 @@ logging.basicConfig(
 class GmailMonitor:
     def __init__(self):
         self.service = None
-        self.notification_service = NotificationService()
+        self.notification_service = NotificationService({
+            'TELEGRAM_BOT_TOKEN': settings.TELEGRAM_BOT_TOKEN,
+            'TELEGRAM_CHAT_ID': settings.TELEGRAM_CHAT_ID,
+            'WHATSAPP_ENABLED': settings.WHATSAPP_ENABLED,
+            'WHATSAPP_PHONE': settings.WHATSAPP_PHONE
+        })
         self.processed_ids = set()
         self.last_check_time = None
         self.load_processed_ids()

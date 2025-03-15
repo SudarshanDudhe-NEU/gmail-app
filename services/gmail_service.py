@@ -7,24 +7,27 @@ from email.mime.audio import MIMEAudio
 from email.mime.base import MIMEBase
 from mimetypes import guess_type as guess_mime_type
 from pathlib import Path
+from googleapiclient.discovery import build
 
-def search_messages(service, query):
-    """Search for messages that match the specified query"""
+def search_messages(service, query, page_token=None):
     try:
-        result = service.users().messages().list(userId='me', q=query).execute()
-        messages = result.get('messages', [])
-        return messages
+        response = service.users().messages().list(
+            userId='me',
+            q=query,
+            pageToken=page_token,
+            maxResults=100  # Adjust as needed, Gmail API allows up to 500
+        ).execute()
+        return response
     except Exception as e:
-        print(f"Error searching messages: {e}")
-        return []
+        print(f'An error occurred: {e}')
+        return None
 
-def get_message_details(service, message_id):
-    """Get details of a specific message"""
+def get_message_details(service, msg_id):
     try:
-        message = service.users().messages().get(userId='me', id=message_id, format='full').execute()
+        message = service.users().messages().get(userId='me', id=msg_id).execute()
         return message
     except Exception as e:
-        print(f"Error getting message details: {e}")
+        print(f'An error occurred: {e}')
         return None
 
 def parse_message_headers(headers):
