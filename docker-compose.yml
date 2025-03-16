@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  gmail-app:
+    build: .
+    container_name: gmail-app
+    restart: always
+    volumes:
+      - ./logs:/var/log
+    environment:
+      - GMAIL_CREDENTIALS_FILE=credentials.json
+      - GMAIL_TOKEN_FILE=token.pickle
+      - GMAIL_USER_EMAIL=sdudhe92@gmail.com
+      - TELEGRAM_BOT_TOKEN=7571666847:AAEvEr2NfoGl0CPh1u5CTNccxUaihvOa6OU
+      - TELEGRAM_CHAT_ID=5058555788
+      - WHATSAPP_ENABLED=True
+      - WHATSAPP_PHONE=+917721976267
+      - CHECK_INTERVAL_SECONDS=300
+      - LOG_LEVEL=INFO
+      - LOG_FILE=/var/log/gmail_monitor.log
+    command: cron && tail -f /var/log/cron.log

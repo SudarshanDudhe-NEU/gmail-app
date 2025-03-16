@@ -5,6 +5,7 @@ from services.gmail_service import search_messages, get_message_details
 from services.notification_service import NotificationService
 from utils.email_parser import is_important_email, extract_email_data
 import config.settings as settings
+from utils.whatsapp_notifications import send_whatsapp_message
 
 # Configure logging
 logging.basicConfig(
@@ -54,13 +55,18 @@ def check_old_emails(query, max_results=1000):
                 logging.info(f"Sender: {email_data['sender']}")
                 logging.info(f"Body: {email_data['body'][:100]}...")  # Print first 100 characters of the body
 
-                # Send notification
+                # Send notifications
                 notification_service.send_notification(
                     email_data['subject'],
                     email_data['body'],
                     email_data['sender'],
                     msg_details['internalDate']
                 )
+
+                # Send WhatsApp notification if enabled
+                if settings.WHATSAPP_ENABLED:
+                    send_whatsapp_message(settings.WHATSAPP_PHONE, f"Important email from {email_data['sender']}: {email_data['subject']}")
+                    logging.info(f"WhatsApp notification sent for email {msg['id']}")
 
         logging.info(f"Found {len(important_emails)} important emails")
 
