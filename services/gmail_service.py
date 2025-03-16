@@ -8,6 +8,8 @@ from email.mime.base import MIMEBase
 from mimetypes import guess_type as guess_mime_type
 from pathlib import Path
 from googleapiclient.discovery import build
+import config.settings as settings
+from base64 import urlsafe_b64encode
 
 def search_messages(service, query, page_token=None):
     try:
@@ -135,20 +137,105 @@ def add_attachment(message, filename):
         content_type = 'application/octet-stream'
     main_type, sub_type = content_type.split('/', 1)
     
-    with open(filename, 'rb') as fp:
-        if main_type == 'text':
+    if main_type == 'text':
+        with open(filename, 'rb') as fp:
             msg = MIMEText(fp.read().decode(), _subtype=sub_type)
-        elif main_type == 'image':
+    elif main_type == 'image':
+        with open(filename, 'rb') as fp:
             msg = MIMEImage(fp.read(), _subtype=sub_type)
-        elif main_type == 'audio':
+    elif main_type == 'audio':
+        with open(filename, 'rb') as fp:
             msg = MIMEAudio(fp.read(), _subtype=sub_type)
-        else:
+    else:
+        with open(filename, 'rb') as fp:
             msg = MIMEBase(main_type, sub_type)
             msg.set_payload(fp.read())
-
+    
     filename = os.path.basename(filename)
     msg.add_header('Content-Disposition', 'attachment', filename=filename)
     message.attach(msg)
+
+def build_message(destination, subject, body, attachments=None):
+    """Build an email message"""
+    if attachments is None:
+        attachments = []
+    
+    sender_email = settings.GMAIL_USER_EMAIL
+    
+    if not attachments:  # no attachments given
+        message = MIMEText(body)
+        message['to'] = destination
+        message['from'] = sender_email
+        message['subject'] = subject
+    else:
+        message = MIMEMultipart()
+        message['to'] = destination
+        message['from'] = sender_email
+        message['subject'] = subject
+        message.attach(MIMEText(body))
+        for filename in attachments:
+            add_attachment(message, filename)
+    
+    return {'raw': urlsafe_b64encode(message.as_bytes()).decode()}
+
+def send_email(service, destination, subject, body, attachments=None):
+    """Send an email message"""
+    try:
+        message = build_message(destination, subject, body, attachments)
+        sent_message = service.users().messages().send(
+            userId="me",
+            body=message
+        ).execute()
+        return sent_message
+    except Exception as e:
+        logging.error(f"Error sending email: {e}")
+        return None
+
+def batch_modify_emails(service, query, add_labels=None, remove_labels=None):
+    """Batch modify emails with specified labels"""
+    if add_labels is None:
+        add_labels = []
+    if remove_labels is None:
+        remove_labels = []
+        
+    messages = search_messages(service, query)
+    if not messages:
+        return None
+        
+    return service.users().messages().batchModify(
+        userId='me',
+        body={
+            'ids': [msg['id'] for msg in messages],
+            'addLabelIds': add_labels,
+            'removeLabelIds': remove_labels
+        }
+    ).execute()
+
+def mark_as_read(service, query):
+    """Mark emails matching the query as read"""
+    return batch_modify_emails(service, query, remove_labels=['UNREAD'])
+
+def mark_as_unread(service, query):
+    """Mark emails matching the query as unread"""
+    return batch_modify_emails(service, query, add_labels=['UNREAD'])
+
+def delete_messages(service, query, batch_size=1000):
+    """Delete messages matching the query"""
+    messages = search_messages(service, query)
+    if not messages:
+        return None
+        
+    # Process in batches to avoid API limits
+    for i in range(0, len(messages), batch_size):
+        batch = messages[i:i+batch_size]
+        service.users().messages().batchDelete(
+            userId='me',
+            body={
+                'ids': [msg['id'] for msg in batch]
+            }
+        ).execute()
+    
+    return True
 
 def build_message(destination, subject, body, sender, attachments=None):
     """Build an email message with optional attachments"""

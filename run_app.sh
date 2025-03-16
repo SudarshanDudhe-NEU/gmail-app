@@ -1,11 +1,24 @@
 #!/bin/bash
+# filepath: /Users/sudarshan/Job and Prep/Projects/gmail-app/run_app.sh
 
-# Start the application in the background
-python main.py &
-APP_PID=$!
+# Check if virtual environment exists
+if [ -d "venv" ]; then
+    echo "Activating virtual environment..."
+    source venv/bin/activate
+else
+    echo "Creating virtual environment..."
+    python3 -m venv venv
+    source venv/bin/activate
+    echo "Installing dependencies..."
+    pip install -r requirements.txt
+fi
 
-# Wait for 10 minutes
-sleep 600
+# Initialize WhatsApp session if needed
+if [ ! -f "whatsapp_session_info.json" ]; then
+    echo "No WhatsApp session found. Initializing..."
+    python scripts/initialize_whatsapp.py
+fi
 
-# Kill the application
-kill $APP_PID
+# Run the application
+echo "Starting Gmail Monitor..."
+python app.py

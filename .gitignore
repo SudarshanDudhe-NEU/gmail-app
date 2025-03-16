@@ -1,22 +1,9 @@
-# Credentials
-Gmail/cred*.json
-credentials.json
-token*.pickle
-*.json.google-oauth2-tool
-
-# Environment variables
-.env
-
-# Logs
-*.log
-
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-env/
 build/
 develop-eggs/
 dist/
@@ -28,28 +15,39 @@ lib64/
 parts/
 sdist/
 var/
+wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache/
 
-# Virtual environment
+# Credentials
+credentials/*.json
+credentials/*.pickle
+*.json
+token*.pickle
+
+# Logs
+logs/
+*.log
+
+# WhatsApp
+whatsapp_session_info.json
+chrome_profile/
+error_screenshot.png
+PyWhatKit_DB.txt
+
+# Environment
+.env
 venv/
+env/
 ENV/
 
-# IDE files
+# IDE
 .idea/
 .vscode/
 *.swp
-*.swo
-
-# OS specific
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
 
-out
-node_modules
+# Jupyter
+.ipynb_checkpoints

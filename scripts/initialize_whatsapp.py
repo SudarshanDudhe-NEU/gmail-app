@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 # filepath: /Users/sudarshan/Job and Prep/Projects/gmail-app/initialize_whatsapp.py
 
-import logging
+# Add parent directory to path so we can import our modules
 import sys
 import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import logging
 import shutil
 import json
 import time
@@ -13,6 +16,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils.whatsapp_notifications import (
+    initialize_whatsapp_session,
     get_session_info,
     save_session_info,
     SESSION_INFO_FILE,
