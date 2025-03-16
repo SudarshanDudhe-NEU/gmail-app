@@ -5,6 +5,7 @@ from pathlib import Path
 import logging
 from transformers import pipeline
 from utils.email_parser import extract_job_details
+from utils.whatsapp_notifications import send_whatsapp_message, is_session_valid
 
 # Configure logging
 logging.basicConfig(
@@ -55,18 +56,20 @@ class NotificationService:
             try:
                 self.send_telegram_notification(formatted_message)
                 success = True
+                logger.info("Telegram notification sent successfully")
             except Exception as e:
-                logging.error(f"Failed to send Telegram notification: {str(e)}")
+                logger.error(f"Failed to send Telegram notification: {str(e)}")
         else:
-            logging.warning("Telegram notifications not configured. Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to .env file.")
+            logger.warning("Telegram notifications not configured. Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to .env file.")
         
         # Try WhatsApp if enabled and configured
         if self.whatsapp_enabled and self.whatsapp_phone:
             try:
                 self.send_whatsapp_notification(formatted_message)
                 success = True
+                logger.info("WhatsApp notification sent successfully")
             except Exception as e:
-                logging.error(f"Failed to send WhatsApp notification: {str(e)}")
+                logger.error(f"Failed to send WhatsApp notification: {str(e)}")
         
         return success
 
@@ -81,6 +84,13 @@ class NotificationService:
         response.raise_for_status()
 
     def send_whatsapp_notification(self, message):
-        """Send a notification via WhatsApp (placeholder)"""
-        # Implement WhatsApp notification logic here
-        pass
+        """Send a notification via WhatsApp"""
+        # Check if session is valid, if not, use visible browser
+        use_headless = is_session_valid()
+        
+        # Use the phone number configured in settings
+        return send_whatsapp_message(
+            phone_number=self.whatsapp_phone,
+            message=message,
+            use_headless=use_headless  # Will use headless mode if session is valid, otherwise visible browser
+        )
