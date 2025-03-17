@@ -29,7 +29,7 @@ class NotificationService:
         self.logger = logger  # Add this line to fix the logger attribute error
 
     def format_message(self, subject, body, sender, received_time):
-        """Format message for notifications with relevant details"""
+        """Format message for notifications with relevant details and stylish formatting"""
         try:
             # Get timestamp - handle both string and int types
             try:
@@ -54,25 +54,27 @@ class NotificationService:
             location = extract_location(body) if body else None
             salary = extract_salary(body) if body else None
             
-            # Build message
-            message = f"📨 *New Important Email*\n\n"
-            message += f"*Subject:* {subject}\n"
-            message += f"*From:* {sender}\n"
-            message += f"*Time:* {time_str}\n\n"
+            # Build message with stylish formatting
+            message = f"📨 *Important Email Alert*\n\n"
+            message += f"*Subject:* _{subject}_\n"  # Subject in italic
+            message += f"*From:* _{sender}_\n"      # Sender in italic
+            message += f"*Time:* _{time_str}_\n\n"  # Time in italic
             
-            # Add job details if available
+            # Add job details with monospace formatting for values
             if job_title:
-                message += f"*Position:* {job_title}\n"
+                message += f"*Position:* `{job_title}`\n"
             if company:
-                message += f"*Company:* {company}\n"
+                message += f"*Company:* `{company}`\n"
             if location:
-                message += f"*Location:* {location}\n"
+                message += f"*Location:* `{location}`\n"
             if salary:
-                message += f"*Salary:* {salary}\n"
+                message += f"*Salary:* `{salary}`\n"
             
-            # Add excerpt of body if available
+            # Add excerpt of body with italic formatting
             if body:
-                message += f"\n{body[:200]}...\n"
+                # Extract first 150 chars for preview
+                preview = body[:150].replace('\n', ' ').strip()
+                message += f"\n_{preview}..._\n"
             
             return message
         except Exception as e:
