@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 import logging
 from transformers import pipeline
-from utils.email_parser import extract_job_details
+from utils.email_parser import extract_job_title, extract_company, extract_location, extract_salary
 from utils.whatsapp_notifications import send_whatsapp_message, is_session_valid
 
 # Configure logging
@@ -26,26 +26,59 @@ class NotificationService:
         self.telegram_chat_id = config.get('TELEGRAM_CHAT_ID')
         self.whatsapp_enabled = config.get('WHATSAPP_ENABLED', False)
         self.whatsapp_phone = config.get('WHATSAPP_PHONE')
+        self.logger = logger  # Add this line to fix the logger attribute error
 
     def format_message(self, subject, body, sender, received_time):
-        """Format the message using LLM"""
-        job_details = extract_job_details(body)
-        prompt = f"""
-        Format the following email for a Telegram notification:
-        Subject: {subject}
-        Sender: {sender}
-        Received Time: {received_time}
-        Body: {body}
-        Job Title: {job_details['job_title']}
-        Company: {job_details['company']}
-        Location: {job_details['location']}
-        Deadline: {job_details['deadline']}
-        """
+        """Format message for notifications with relevant details"""
+        try:
+            # Get timestamp - handle both string and int types
+            try:
+                if isinstance(received_time, str):
+                    # Try to convert string to int if it's numeric
+                    if received_time.isdigit():
+                        received_time = int(received_time)
+                    else:
+                        # If it's not numeric, use current time
+                        received_time = int(datetime.now().timestamp() * 1000)
+                
+                # Now proceed with timestamp conversion
+                received_dt = datetime.fromtimestamp(received_time / 1000)
+                time_str = received_dt.strftime("%Y-%m-%d %H:%M:%S")
+            except (ValueError, TypeError):
+                # Fallback to current time if conversion fails
+                time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+            # Extract job details if available
+            job_title = extract_job_title(body) if body else None
+            company = extract_company(body) if body else None
+            location = extract_location(body) if body else None
+            salary = extract_salary(body) if body else None
+            
+            # Build message
+            message = f"📨 *New Important Email*\n\n"
+            message += f"*Subject:* {subject}\n"
+            message += f"*From:* {sender}\n"
+            message += f"*Time:* {time_str}\n\n"
+            
+            # Add job details if available
+            if job_title:
+                message += f"*Position:* {job_title}\n"
+            if company:
+                message += f"*Company:* {company}\n"
+            if location:
+                message += f"*Location:* {location}\n"
+            if salary:
+                message += f"*Salary:* {salary}\n"
+            
+            # Add excerpt of body if available
+            if body:
+                message += f"\n{body[:200]}...\n"
+            
+            return message
+        except Exception as e:
+            logger.error(f"Error formatting message: {e}")
+            return f"New email from {sender}: {subject}"
 
-        response = generator(prompt, max_length=150, num_return_sequences=1)
-        formatted_message = response[0]['generated_text'].strip()
-        return formatted_message
-        
     def send_notification(self, subject, body, sender, received_time):
         """Send notification through all configured channels"""
         success = False

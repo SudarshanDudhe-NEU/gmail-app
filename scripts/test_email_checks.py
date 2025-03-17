@@ -1,70 +1,94 @@
 #!/usr/bin/env python
-# filepath: /Users/sudarshan/Job and Prep/Projects/gmail-app/test_email_checks.py
+
+# Import helper to set up path for imports
+import os
+import sys
+script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(script_dir))
 
 import logging
-import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 import config.settings as settings
-from check_old_emails import check_old_emails
+from auth.gmail_auth import gmail_authenticate
+from services.gmail_service import search_messages, get_message_details
+from utils.email_parser import is_important_email, extract_email_data
 
-# Configure logging
 logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(settings.LOG_FILE),
-        logging.StreamHandler()
-    ]
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+logger = logging.getLogger(__name__)
 
-def run_test(test_name, query, max_results=10):
-    """Run a specific email test with the given query"""
-    logging.info(f"Running test: {test_name}")
-    logging.info(f"Query: {query}")
-    logging.info(f"Max results: {max_results}")
+def test_email_check():
+    """Test email checking functionality"""
+    logger.info("Testing email checking functionality...")
     
+    # Authenticate
     try:
-        check_old_emails(query, max_results)
-        logging.info(f"✅ Test '{test_name}' completed successfully")
+        service = gmail_authenticate()
+        if not service:
+            logger.error("❌ Authentication failed")
+            return False
+        
+        logger.info("✅ Authentication successful")
     except Exception as e:
-        logging.error(f"❌ Test '{test_name}' failed: {e}")
-
-def main():
-    """Run email notification tests"""
-    parser = argparse.ArgumentParser(description='Test email checking and notifications')
-    parser.add_argument('--test', choices=['recent', 'important', 'specific', 'all'], 
-                      default='all', help='Which test to run')
-    args = parser.parse_args()
+        logger.error(f"❌ Authentication error: {e}")
+        return False
     
-    logging.info("Starting email check tests...")
-    
-    # Define test cases
-    tests = {
-        'recent': {
-            'name': 'Recent Emails',
-            'query': 'newer_than:3d',  # Emails from the last 3 days
-            'max_results': 10
-        },
-        'important': {
-            'name': 'Important Emails',
-            'query': 'is:important',  # Emails marked as important by Gmail
-            'max_results': 10
-        },
-        'specific': {
-            'name': 'Specific Sender',
-            'query': 'from:notifications@github.com',  # Replace with a sender you want to test
-            'max_results': 5
-        }
-    }
-    
-    if args.test == 'all':
-        for test_id, test_config in tests.items():
-            run_test(test_config['name'], test_config['query'], test_config['max_results'])
-    else:
-        test_config = tests[args.test]
-        run_test(test_config['name'], test_config['query'], test_config['max_results'])
-    
-    logging.info("Email check tests complete!")
+    # Search for a few recent emails
+    try:
+        # Get emails from last day
+        query = "newer_than:1d"
+        logger.info(f"Searching for emails with query: {query}")
+        
+        response = search_messages(service, query)
+        if not response or 'messages' not in response:
+            logger.warning("No emails found for testing")
+            return True  # Not a failure, just no emails
+        
+        messages = response.get('messages', [])
+        
+        # Limit to first 3 for testing
+        messages = messages[:3]
+        
+        logger.info(f"Found {len(messages)} emails for testing")
+        
+        # Process emails
+        for message in messages:
+            message_id = message.get('id')
+            message_data = get_message_details(service, message_id)
+            
+            if not message_data:
+                logger.warning(f"Could not get details for message {message_id}")
+                continue
+            
+            email_data = extract_email_data(message_data)
+            
+            logger.info(f"Testing email: {email_data['subject']} from {email_data['sender']}")
+            
+            # Check importance
+            is_important = is_important_email(email_data)
+            
+            if is_important:
+                logger.info(f"✅ Email marked as important: {email_data['subject']}")
+            else:
+                logger.info(f"❌ Email not marked as important: {email_data['subject']}")
+        
+        logger.info("Email check test completed successfully")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Error during email check test: {e}")
+        return False
 
 if __name__ == "__main__":
-    main()
+    print("\n==================================================")
+    print("           Email Checking Test                    ")
+    print("==================================================\n")
+    
+    result = test_email_check()
+    
+    if result:
+        print("\n✅ Email checking test completed successfully!")
+    else:
+        print("\n❌ Email checking test failed. Check logs for details.")

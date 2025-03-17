@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # filepath: /Users/sudarshan/Job and Prep/Projects/gmail-app/initialize_whatsapp.py
 
-# Add parent directory to path so we can import our modules
-import sys
+# Import helper to set up path for imports
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys
+script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(script_dir))
 
 import logging
 import shutil

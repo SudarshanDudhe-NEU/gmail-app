@@ -1,9 +1,12 @@
 #!/usr/bin/env python
-# filepath: /Users/sudarshan/Job and Prep/Projects/gmail-app/test_whatsapp.py
+
+# Import helper to set up path for imports
+import os
+import sys
+script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(script_dir))
 
 import logging
-import sys
-import os
 import time
 from datetime import datetime
 import config.settings as settings

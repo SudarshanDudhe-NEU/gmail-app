@@ -51,3 +51,4 @@ ENV/
 
 # Jupyter
 .ipynb_checkpoints
+chrome_profile/

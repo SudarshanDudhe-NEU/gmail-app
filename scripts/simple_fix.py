@@ -1,0 +1,418 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import re
+
+def fix_email_parser():
+    """Fix email parser by adding settings import"""
+    filepath = "utils/email_parser.py"
+    print(f"Fixing {filepath}...")
+    
+    try:
+        with open(filepath, 'r') as file:
+            content = file.read()
+            
+        if 'import config.settings as settings' not in content:
+            # Add settings import
+            content = re.sub(
+                r'import (re|logging)',
+                'import \\1\nimport config.settings as settings',
+                content,
+                count=1
+            )
+            
+            # Update is_important_email function to handle list/string properly
+            content = re.sub(
+                r'(def is_important_email.*?keywords = ).*?(\n\s+for keyword)',
+                '\\1[k.lower() for k in settings.IMPORTANCE_KEYWORDS]\\2',
+                content,
+                flags=re.DOTALL
+            )
+            
+            with open(filepath, 'w') as file:
+                file.write(content)
+                
+            print(f"✅ Added settings import to {filepath}")
+        else:
+            print(f"✅ Settings import already exists in {filepath}")
+    except Exception as e:
+        print(f"❌ Error fixing {filepath}: {e}")
+
+def fix_notification_service():
+    """Fix notification_service.py to handle function calls properly"""
+    filepath = "services/notification_service.py"
+    print(f"Fixing {filepath}...")
+    
+    try:
+        with open(filepath, 'r') as file:
+            content = file.read()
+        
+        # Check for the problematic function call
+        if 'job_details = extract_job_details(body)' in content:
+            # Replace with proper imports first
+            if 'from utils.email_parser import extract_job_details' in content:
+                content = content.replace(
+                    'from utils.email_parser import extract_job_details',
+                    'from utils.email_parser import extract_job_title, extract_company, extract_location, extract_salary'
+                )
+            
+            # Replace the problematic line
+            content = content.replace(
+                'job_details = extract_job_details(body)',
+                'job_title = extract_job_title(body)\n        company = extract_company(body)\n        location = extract_location(body)\n        salary = extract_salary(body)'
+            )
+            
+            # Now fix the message building part if needed
+            if 'if job_details:' in content:
+                content = content.replace(
+                    'if job_details:',
+                    'if job_title:'
+                )
+                content = content.replace(
+                    'message += f"*Job Details:* {job_details}\\n"',
+                    'message += f"*Position:* {job_title}\\n"'
+                )
+                
+                # Add the other job details
+                if 'message += f"*Position:* {job_title}\\n"' in content:
+                    check_pattern = r'message \+= f"\*Position:\* \{job_title\}\\n"(\s*)'
+                    add_content = '\n        if company:\n            message += f"*Company:* {company}\\n"\n        if location:\n            message += f"*Location:* {location}\\n"\n        if salary:\n            message += f"*Salary:* {salary}\\n"'
+                    content = re.sub(check_pattern, f'message += f"*Position:* {{job_title}}\\n"\\1{add_content}\\1', content)
+            
+            with open(filepath, 'w') as file:
+                file.write(content)
+                
+            print(f"✅ Fixed function calls in {filepath}")
+        else:
+            print(f"✅ No issues found in {filepath}")
+    except Exception as e:
+        print(f"❌ Error fixing {filepath}: {e}")
+
+def fix_notification_test():
+    """Fix test_notifications.py to include received_time parameter"""
+    filepath = "scripts/test_notifications.py"
+    print(f"Fixing {filepath}...")
+    
+    try:
+        with open(filepath, 'r') as file:
+            content = file.read()
+        
+        # Replace send_notification call with one that includes received_time
+        if 'received_time=' not in content:
+            # Add time import if needed
+            if 'import time' not in content:
+                import_line = 'import logging\n'
+                if import_line in content:
+                    content = content.replace(import_line, 'import logging\nimport time\n')
+                else:
+                    # Try to add after other imports
+                    content = re.sub(
+                        r'(import .*?\n\n)',
+                        '\\1import time\n\n',
+                        content,
+                        count=1
+                    )
+            
+            # Fix the function call to include received_time
+            notification_call = re.findall(r'result = notification_service\.send_notification\([\s\S]*?\)', content)
+            if notification_call:
+                old_call = notification_call[0]
+                if old_call.endswith(')'):
+                    new_call = old_call[:-1] + ',\n        received_time=int(time.time() * 1000))'
+                    content = content.replace(old_call, new_call)
+            
+            with open(filepath, 'w') as file:
+                file.write(content)
+                
+            print(f"✅ Fixed received_time parameter in {filepath}")
+        else:
+            print(f"✅ received_time parameter already exists in {filepath}")
+    except Exception as e:
+        print(f"❌ Error fixing {filepath}: {e}")
+
+def manually_create_test_files():
+    """Manually create corrected test files"""
+    print("Creating fixed test files...")
+    
+    # 1. Create fixed test_all.py
+    test_all_content = """#!/usr/bin/env python
+
+import os
+import sys
+import logging
+import time
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+def test_whatsapp():
+    print("\\n🔍 Testing WhatsApp Session...")
+    
+    try:
+        from utils.whatsapp_notifications import is_session_valid, send_whatsapp_message
+        
+        session_valid = is_session_valid()
+        
+        if session_valid:
+            print("✅ WhatsApp session is valid")
+            
+            print("\\n📱 Testing WhatsApp Messaging...")
+            result = send_whatsapp_message(
+                phone_number="917721976267",
+                message="Test message from Gmail Monitor test suite",
+                use_headless=True
+            )
+            
+            if result:
+                print("✅ WhatsApp message sent successfully")
+                return True
+            else:
+                print("❌ Failed to send WhatsApp message")
+                return False
+        else:
+            print("❌ WhatsApp session is not valid")
+            print("   Run 'python scripts/initialize_whatsapp.py' to set up a session")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error testing WhatsApp: {e}")
+        return False
+
+def test_notifications():
+    print("\\n📧 Testing Notifications...")
+    
+    try:
+        from services.notification_service import NotificationService
+        import config.settings as settings
+        
+        notification_service = NotificationService({
+            'TELEGRAM_BOT_TOKEN': settings.TELEGRAM_BOT_TOKEN,
+            'TELEGRAM_CHAT_ID': settings.TELEGRAM_CHAT_ID,
+            'WHATSAPP_ENABLED': settings.WHATSAPP_ENABLED,
+            'WHATSAPP_PHONE': settings.WHATSAPP_PHONE
+        })
+        
+        # Use the correct parameter name: received_time
+        result = notification_service.send_notification(
+            subject="Test Subject",
+            body="Test body from test_all.py",
+            sender="test@example.com",
+            received_time=int(time.time() * 1000)
+        )
+        
+        if result:
+            print("✅ Notification sent successfully")
+            return True
+        else:
+            print("❌ Failed to send notification")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error testing notifications: {e}")
+        return False
+
+def test_email():
+    print("\\n📨 Testing Email Checking...")
+    
+    try:
+        from auth.gmail_auth import gmail_authenticate
+        from services.gmail_service import search_messages, get_message_details
+        from utils.email_parser import extract_email_data, is_important_email
+        import config.settings as settings
+        
+        # Authenticate
+        service = gmail_authenticate()
+        if not service:
+            print("❌ Gmail authentication failed")
+            return False
+            
+        print("✅ Gmail authentication successful")
+        
+        # Check for recent emails
+        query = "newer_than:1d"
+        print(f"Searching for emails with query: {query}")
+        
+        response = search_messages(service, query)
+        if not response or 'messages' not in response:
+            print("No emails found for testing")
+            return True
+            
+        messages = response.get('messages', [])[:3]
+        print(f"Found {len(messages)} emails for testing")
+        
+        for message in messages:
+            message_id = message.get('id')
+            message_data = get_message_details(service, message_id)
+            
+            if message_data:
+                email_data = extract_email_data(message_data)
+                print(f"Email: {email_data['subject']}")
+                
+                # Check importance
+                is_important = is_important_email(email_data)
+                print(f"  Important: {'Yes' if is_important else 'No'}")
+                
+        print("✅ Email checking test completed successfully")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error testing email checking: {e}")
+        return False
+
+def run_all_tests():
+    print("\\n==================================================")
+    print("                  Test Suite                      ")
+    print("==================================================")
+    
+    # Test WhatsApp
+    whatsapp_ok = test_whatsapp()
+    
+    # Test notifications
+    notifications_ok = test_notifications()
+    
+    # Test email
+    email_ok = test_email()
+    
+    # Summary
+    print("\\n==================================================")
+    print("                 Test Results                     ")
+    print("==================================================")
+    print(f"WhatsApp:      {'✅ PASS' if whatsapp_ok else '❌ FAIL'}")
+    print(f"Notifications: {'✅ PASS' if notifications_ok else '❌ FAIL'}")
+    print(f"Email:         {'✅ PASS' if email_ok else '❌ FAIL'}")
+    print("==================================================")
+    
+    overall = all([whatsapp_ok, notifications_ok, email_ok])
+    print(f"\\nOverall: {'✅ ALL TESTS PASSED' if overall else '❌ SOME TESTS FAILED'}")
+    
+    return overall
+
+if __name__ == "__main__":
+    run_all_tests()
+"""
+
+    # 2. Create test launcher
+    test_launcher_content = """#!/usr/bin/env python
+
+import os
+import sys
+import subprocess
+import argparse
+
+def run_test(test_name=None):
+    if test_name:
+        if test_name == "all":
+            cmd = [sys.executable, "scripts/test_all.py"]
+        else:
+            script_path = f"scripts/test_{test_name}.py"
+            if not os.path.exists(script_path):
+                print(f"Error: Test script {script_path} not found")
+                return False
+            cmd = [sys.executable, script_path]
+    else:
+        cmd = [sys.executable, "scripts/fix_test.py"]
+    
+    try:
+        return subprocess.run(cmd, check=True).returncode == 0
+    except subprocess.CalledProcessError:
+        return False
+    except KeyboardInterrupt:
+        print("\\nTest interrupted by user.")
+        return False
+
+def main():
+    parser = argparse.ArgumentParser(description='Run Gmail App tests')
+    parser.add_argument('test', nargs='?', default=None, 
+                      help='Test to run (whatsapp, notifications, email_checks, all)')
+    
+    args = parser.parse_args()
+    
+    print("\\n==================================================")
+    print("            Gmail App Test Launcher               ")
+    print("==================================================\\n")
+    
+    if args.test:
+        print(f"Running test: {args.test}\\n")
+        success = run_test(args.test)
+    else:
+        print("No test specified. Running configuration check.\\n")
+        success = run_test()
+        
+        if success:
+            print("\\nWhich test would you like to run?")
+            print("1. WhatsApp Test")
+            print("2. Notifications Test")
+            print("3. Email Check Test")
+            print("4. All Tests")
+            print("5. Exit")
+            
+            choice = input("\\nEnter your choice (1-5): ").strip()
+            
+            test_map = {
+                "1": "whatsapp",
+                "2": "notifications",
+                "3": "email_checks",
+                "4": "all"
+            }
+            
+            if choice in test_map:
+                success = run_test(test_map[choice])
+            else:
+                print("Exiting...")
+                return
+    
+    print("\\n==================================================")
+    print(f"Test result: {'✅ PASS' if success else '❌ FAIL'}")
+    print("==================================================")
+
+if __name__ == "__main__":
+    main()
+"""
+
+    # Write the fixed files
+    try:
+        with open("scripts/test_all.py", 'w') as file:
+            file.write(test_all_content)
+        os.chmod("scripts/test_all.py", 0o755)
+        print("✅ Created scripts/test_all.py")
+        
+        with open("test.py", 'w') as file:
+            file.write(test_launcher_content)
+        os.chmod("test.py", 0o755)
+        print("✅ Created test.py")
+    except Exception as e:
+        print(f"❌ Error creating test files: {e}")
+
+def main():
+    print("\n==================================================")
+    print("                Applying Fixes                    ")
+    print("==================================================\n")
+    
+    fix_email_parser()
+    fix_notification_service()
+    fix_notification_test()
+    manually_create_test_files()
+    
+    print("\n==================================================")
+    print("              Fixes Complete                     ")
+    print("==================================================\n")
+    print("You can now run the tests with:")
+    print("  python test.py [test_name]")
+    print("Where [test_name] can be:")
+    print("  - whatsapp: Test WhatsApp functionality")
+    print("  - notifications: Test notification service")
+    print("  - email_checks: Test email checking")
+    print("  - all: Run all tests")
+    print("Or run without arguments to check configuration:")
+    print("  python test.py\n")
+
+if __name__ == "__main__":
+    main()

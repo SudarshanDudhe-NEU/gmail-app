@@ -88,7 +88,7 @@ WHATSAPP_PHONE = os.getenv('WHATSAPP_PHONE')
 # Email processing settings
 MAX_EMAILS_TO_CHECK = int(os.getenv('MAX_EMAILS_TO_CHECK', '1000'))
 DAYS_TO_CHECK = int(os.getenv('DAYS_TO_CHECK', '7'))
-IMPORTANCE_KEYWORDS = os.getenv('IMPORTANCE_KEYWORDS', 'urgent,important,interview,offer,job').split(',')
+IMPORTANCE_KEYWORDS = os.getenv('IMPORTANCE_KEYWORDS', 'urgent,important,interview,offer,job,application').split(',')
 SENDER_ALLOWLIST = os.getenv('SENDER_ALLOWLIST', '').split(',') if os.getenv('SENDER_ALLOWLIST') else []
 
 # Polling settings
