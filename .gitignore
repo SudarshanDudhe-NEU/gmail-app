@@ -52,3 +52,4 @@ ENV/
 # Jupyter
 .ipynb_checkpoints
 chrome_profile/
+data/processed_emails.txt
