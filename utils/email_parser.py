@@ -1,14 +1,46 @@
 import re
 import config.settings as settings
 import logging
-from datetime import datetime
-from config.settings import IMPORTANCE_KEYWORDS
-from transformers import pipeline
+import requests
 
 logger = logging.getLogger(__name__)
 
-# Initialize the text classification pipeline
-classifier = pipeline("text-classification", model="distilbert-base-uncased-finetuned-sst-2-english")
+def classify_importance_with_llama(text):
+    """Use Llama 3.2 to determine if an email is important"""
+    try:
+        prompt = f"""
+        Analyze this email and determine if it's important. Important emails typically:
+        - Come from significant senders like managers or clients
+        - Contain urgent requests or deadlines
+        - Require immediate action or response
+        - Contain critical information
+        
+        Return only "IMPORTANT" or "NOT_IMPORTANT".
+        
+        Email text:
+        {text}
+        """
+        
+        payload = {
+            "model": "llama3.2",
+            "prompt": prompt,
+            "stream": False
+        }
+        
+        response = requests.post("http://localhost:11434/api/generate", json=payload)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if "IMPORTANT" in result["response"].upper():
+                return True
+            else:
+                return False
+        else:
+            logger.error(f"Error calling Llama API: {response.status_code}")
+            return False
+    except Exception as e:
+        logger.error(f"Exception in classify_importance_with_llama: {str(e)}")
+        return False
 
 def extract_email_data(message_data):
     """Extract relevant data from Gmail message"""
@@ -120,8 +152,7 @@ def is_important_email(email_data):
     sender = email_data.get('sender', '').lower()
     body = email_data.get('body', '').lower()
     
-    # We now know IMPORTANCE_KEYWORDS is a list from our test
-    # No need to split it
+    # First check using keywords
     keywords = [k.lower() for k in settings.IMPORTANCE_KEYWORDS]
     
     for keyword in keywords:
@@ -129,7 +160,11 @@ def is_important_email(email_data):
             logger.info(f"Found important keyword: '{keyword}' in email from {sender}")
             return True
     
-    # Additional logic for determining importance can be added here
-    # For example, checking for specific senders, urgency indicators, etc.
+    # Then use Llama 3.2 for more sophisticated analysis
+    combined_text = f"Subject: {subject}\n\nFrom: {sender}\n\n{body[:1000]}"  # Limit text length
+    is_important = classify_importance_with_llama(combined_text)
     
-    return False
+    if is_important:
+        logger.info(f"Llama model classified email from {sender} as important")
+    
+    return is_important

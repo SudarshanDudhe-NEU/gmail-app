@@ -190,6 +190,139 @@ Logs are stored in the logs directory and provide detailed information about:
 - Authentication status
 - Errors and exceptions
 
+## AI-Powered Email Classification
+
+This application uses Llama 3.2, a powerful open-source language model, for intelligent email processing:
+
+- **Smart Classification**: Automatically identifies important emails beyond simple keyword matching
+- **Content Summarization**: Generates concise summaries for notifications
+- **Context-Aware Analysis**: Understands email context for better importance scoring
+
+### Setting Up Llama 3.2
+
+1. Install Ollama (the Llama runtime):
+   ```bash
+   # macOS
+   brew install ollama
+
+   # Linux
+   curl -fsSL https://ollama.com/install.sh | sh
+   ```
+
+2. Pull the Llama 3.2 model:
+   ```bash
+   ollama pull llama3.2
+   ```
+
+3. Start the Ollama service:
+   ```bash
+   ollama serve
+   ```
+
+### Advanced Configuration Options
+
+Add these to your `.env` file:
+
+| Setting          | Description                              | Default |
+|------------------|------------------------------------------|---------|
+| `USE_LLAMA`      | Enable or disable Llama for classification | true    |
+| `LLAMA_URL`      | URL for Ollama API                       | http://localhost:11434 |
+| `SUMMARY_LENGTH` | Maximum length for email summaries       | 150     |
+
+## Troubleshooting
+
+### Fixing Authentication Issues
+
+If you encounter OAuth errors like "invalid_grant" or "redirect_uri_mismatch":
+
+1. Delete expired tokens:
+   ```bash
+   rm credentials/token*.json
+   ```
+
+2. Update Google Cloud Console settings:
+   - Add both `http://localhost:8080` AND `http://localhost:8080/` (with trailing slash) as redirect URIs
+   - Regenerate client secret if it was exposed
+
+3. Run the application again to trigger the authentication flow
+
+### Background Operation
+
+Multiple options to keep the application running in the background:
+
+#### Using nohup (simplest)
+```bash
+nohup run_app.sh > logs/output.log 2>&1 &
+```
+
+#### Using tmux (better for debugging)
+```bash
+# Install tmux
+brew install tmux
+
+# Start session
+tmux new -s gmail-app
+./run_app.sh
+# Press Ctrl+B then D to detach
+
+# Reattach later
+tmux attach -t gmail-app
+```
+
+#### Using launchd (macOS system service)
+Create a plist file at `~/Library/LaunchAgents/com.yourusername.gmail-app.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.yourusername.gmail-app</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/path/to/your/run_app.sh</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/path/to/your/logs/stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/path/to/your/logs/stderr.log</string>
+</dict>
+</plist>
+```
+
+Then load the service:
+```bash
+launchctl load ~/Library/LaunchAgents/com.yourusername.gmail-app.plist
+```
+
+## Security Best Practices
+
+1. **Protect your credentials**:
+   - Add sensitive files to .gitignore:
+     ```
+     credentials/*.json
+     whatsapp_session_info.json
+     data/processed_emails.txt
+     ```
+   - Use environment variables instead of files when possible
+
+2. **Regenerate compromised secrets**:
+   - If you accidentally expose OAuth client secrets, regenerate them in Google Cloud Console
+   - Store credentials outside the code repository
+
+3. **Regular updates**:
+   - Keep dependencies updated: `pip install --upgrade -r requirements.txt`
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the LICENSE file for details.
